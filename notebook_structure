@@ -282,3 +282,45 @@ If you want next, I can:
 	•	Create a 1-page slide for this
 	•	Help you answer ‘Do we rerun notebooks or just register tables?’ clearly
 
+
+
+
+repo-root/
+│
+├── projects/
+│   ├── hhv_claims/
+│   │   ├── landing/
+│   │   │   ├── api_to_s3.py
+│   │   │   └── db2_to_s3.py
+│   │   │
+│   │   ├── bronze/
+│   │   │   ├── ingest_claims.py
+│   │   │   └── ingest_hhv.py
+│   │   │
+│   │   ├── silver/
+│   │   │   ├── dedup_claims.py
+│   │   │   └── normalize_members.py
+│   │   │
+│   │   ├── gold/
+│   │   │   ├── hhv_claim_success_metrics.py
+│   │   │   └── monthly_summary.py
+│   │   │
+│   │   ├── configs/
+│   │   │   ├── dev.yml
+│   │   │   ├── qa.yml
+│   │   │   └── prod.yml
+│   │   │
+│   │   └── README.md
+│   │
+│   ├── eligibility/
+│   └── provider_network/
+│
+├── common/
+│   ├── utils/
+│   ├── logging/
+│   └── validation/
+│
+├── ci_cd/
+└── README.md
+
+
