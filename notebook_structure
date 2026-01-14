@@ -126,3 +126,159 @@ Examples:
 	•	HHV success rate
 	•	Monthly summaries
 
+
+Perfect — then let’s lock this correctly for AWS and keep it simple + accurate for your workshop.
+
+Below is the final, AWS-specific version you can confidently present.
+
+⸻
+
+🔹 Medallion layers (AWS-aligned)
+
+📁 Landing
+
+Scope: Source → S3 only
+(Used for API, DB2, RDS, vendor feeds, etc.)
+
+Purpose
+	•	First stop for data coming into AWS
+	•	Raw copy for traceability & replays
+	•	No Spark, no Delta, no joins
+
+What goes here
+	•	API responses (JSON / CSV)
+	•	DB2 → S3 extracts
+	•	Vendor files (Signify, claims feeds)
+	•	Scheduled batch dumps
+
+Rules
+	•	No transformations
+	•	No schema enforcement
+	•	Immutable files
+
+Example
+
+API / DB2 / RDS
+      ↓
+S3 (landing bucket)
+
+🔑 Landing is AWS infrastructure, not analytics.
+
+⸻
+
+📁 Bronze
+
+Scope: S3 → Delta (raw structured)
+
+Purpose
+	•	Convert raw files into Delta tables
+	•	Apply schema once
+	•	Add ingestion metadata
+
+What happens
+	•	Read from S3 landing
+	•	Write to Delta (bronze schema)
+	•	Append-only
+
+Allowed
+	•	Schema inference
+	•	Metadata columns (ingest_ts, batch_id)
+	•	CDC ingestion
+
+Not allowed
+	•	Joins
+	•	Business rules
+
+⸻
+
+📁 Silver
+
+Scope: Clean & conform
+
+Purpose
+	•	Make data reliable and usable
+	•	Entity-level tables
+
+What happens
+	•	Deduplication
+	•	Type casting
+	•	Standardized IDs
+	•	Light joins (reference tables)
+
+Examples
+	•	One row per member
+	•	Clean HHV completed table
+	•	Claims conformed by member + DOS
+
+⸻
+
+📁 Gold
+
+Scope: Business & analytics
+
+Purpose
+	•	Metrics, KPIs, dashboards
+
+What happens
+	•	Aggregations
+	•	Filters by business rules
+	•	Final reporting grain
+
+Examples
+	•	HHV → Claim conversion %
+	•	Missing claims by market
+	•	Monthly summaries
+
+⸻
+
+🔹 AWS Data Flow (explain this verbally)
+
+API / DB2 / Vendors
+        ↓
+S3 (Landing)
+        ↓
+Bronze (Delta – Raw Structured)
+        ↓
+Silver (Clean / Conformed)
+        ↓
+Gold (Metrics / Dashboards)
+
+
+⸻
+
+🔹 Key clarification (say this explicitly)
+
+“Landing is only for ingestion into S3.
+Medallion architecture starts at Bronze.”
+
+⸻
+
+🔹 GitHub structure (what Elizabeth asked)
+
+repo/
+│
+├── landing/        # API, DB2 → S3 logic
+│
+├── bronze/         # S3 → Delta ingestion
+│
+├── silver/         # Clean, deduped tables
+│
+├── gold/           # KPIs, metrics
+│
+├── common/         # mappings, utilities
+└── README.md
+
+
+⸻
+
+🔹 One-liner you can use on the call
+
+“In AWS, Landing handles source-to-S3 ingestion, Bronze structures it, Silver cleans it, and Gold delivers business metrics.”
+
+⸻
+
+If you want next, I can:
+	•	Give you exact phrasing for Elizabeth’s questions
+	•	Create a 1-page slide for this
+	•	Help you answer ‘Do we rerun notebooks or just register tables?’ clearly
+
