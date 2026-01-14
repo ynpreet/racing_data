@@ -83,3 +83,46 @@ RevenuecycleProject/
           2. Calls the “Gold → RCO_DW” function from `common_functions`.
           3. May include transformations specific to how RCO_DW is structured.
           4. Utilizes any relevant parameters defined in `configuration` (e.g., final schema names).
+
+
+
+🔹 What those folders should contain
+
+📁 /bronze
+	•	Raw ingestion logic
+	•	Minimal transformations
+	•	Schema as-is
+	•	No joins, no business logic
+
+Examples:
+	•	Load from S3 / ADLS / GCS
+	•	CDC ingestion
+	•	File → Delta
+
+⸻
+
+📁 /silver
+	•	Cleansed & conformed data
+	•	Deduplication
+	•	Type casting
+	•	Standardized keys
+	•	Light joins
+
+Examples:
+	•	One row per business entity
+	•	Remove duplicates
+	•	Normalize codes
+
+⸻
+
+📁 /gold
+	•	Business-ready datasets
+	•	Aggregations
+	•	KPIs
+	•	Reporting tables
+
+Examples:
+	•	Claims metrics
+	•	HHV success rate
+	•	Monthly summaries
+
