@@ -323,4 +323,29 @@ repo-root/
 ├── ci_cd/
 └── README.md
 
+Hi Amy,
 
+Good evening. Thank you for taking the time to connect earlier.
+
+I connected with the ACS team to better understand the CMS edge server setup. They confirmed that these servers operate under additional CMS security controls and require multiple steps to access via Linux. The current process was implemented several years ago, and while there may be alternative approaches, the team is not aware of a supported way to directly connect at this time.
+
+Given this, the quickest and most reliable path forward is to leverage the existing process where predefined queries are executed and the output is stored in S3. From there, we can ingest the data into AWS Glue and make it available in Databricks.
+
+To move ahead, it would be helpful to get clarity on the following:
+	1.	Tables Required
+A list of tables needed from each CMS edge server.
+	2.	Column Selection
+For each table, the specific columns required, as some tables contain a large number of fields.
+	3.	Historical Data Needs
+Whether full historical data is required or only a defined time window (e.g., last few years).
+	4.	Refresh Frequency
+Expected refresh cadence (weekly, monthly, etc.). Based on our discussion, it does not appear that daily refreshes are required.
+	5.	Incremental Identification
+Any columns (such as created/updated timestamps or similar) that can be used to support incremental loads rather than full refreshes.
+
+If you could share these questions with the relevant analysts, that would help us gather the necessary inputs and proceed efficiently.
+
+Please let me know if you have any questions or would like to discuss this further.
+
+Thank you,
+[Your Name
