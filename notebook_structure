@@ -637,4 +637,53 @@ If you want, next I can:
 	•	Add a “How to interpret this dashboard” cheat sheet
 
 
+1️⃣ Annual HHV Eligibility File (Aetna → Signify)
+	•	Aetna generates and shares an annual eligibility list of members who are eligible for a Healthy Home Visit.
+	•	This list is shared in bulk at the beginning of the program year with Signify.
+	•	The list represents:
+	•	Who is eligible
+	•	Who should be targeted for HHVs
+	•	This list does NOT indicate that a visit occurred — only that a member is eligible.
+
+📌 Key point:
+This file defines the universe of potential HHVs, not completed visits.
+
+⸻
+
+2️⃣ HHV Disposition Data (Signify → Aetna)
+	•	Signify determines how and when visits are conducted based on operational workflows.
+	•	Once visits occur, Signify sends monthly disposition files back to Aetna.
+	•	Disposition data includes:
+	•	Member identifier
+	•	Visit status (Completed, Cancelled, In Progress, etc.)
+	•	Date of Service (HHV visit date)
+	•	Program / Line of Business attributes
+
+📌 Disposition data is the authoritative source for:
+	•	Which HHVs actually occurred
+	•	When the visit happened
+	•	Which HHVs are considered “Completed”
+
+➡️ This dashboard uses ONLY “Completed” dispositions to identify valid HHVs.
+
+⸻
+
+3️⃣ Claims Data (Signify → Aetna Claims Systems)
+	•	After an HHV is completed:
+	•	The Signify-affiliated provider (e.g., nurse practitioner) submits a medical claim.
+	•	Claims are:
+	•	Submitted separately from disposition data
+	•	Processed through standard Aetna claims adjudication systems
+	•	Claims data includes:
+	•	Member ID
+	•	Date of Service
+	•	CPT / Procedure codes
+	•	Provider identifiers (TIN/NPI)
+	•	Claim status (Paid, Denied, Adjusted, etc.)
+
+📌 Important distinction:
+	•	Disposition data confirms a visit happened
+	•	Claims data confirms the visit was billed and adjudicated
+
+
 
