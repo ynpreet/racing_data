@@ -349,3 +349,292 @@ Please let me know if you have any questions or would like to discuss this furth
 
 Thank you,
 [Your Name
+
+
+=====
+
+Below is share-ready documentation you can directly circulate with stakeholders.
+It’s written in business-first language, then gradually moves into analytics logic, and finally decision value by audience.
+
+You can paste this into Confluence / SharePoint / Google Docs as-is.
+
+⸻
+
+Healthy Home Visit (HHV) → Claims Conversion Dashboard
+
+Business & Analytics Documentation
+
+⸻
+
+1. Business Context & Purpose
+
+Why this dashboard exists
+
+Healthy Home Visits (HHVs), conducted by vendors like Signify, are a key part of:
+	•	Risk adjustment
+	•	Care gap closure
+	•	CMS reimbursement accuracy
+
+However, HHVs only generate value if a corresponding medical claim is submitted and adjudicated.
+
+This dashboard answers one core business question:
+
+“Of the HHVs completed, how many actually resulted in claims — and how long did it take?”
+
+⸻
+
+2. Business Questions This Dashboard Answers
+	1.	How many HHVs were completed?
+	2.	How many of those HHVs converted into claims?
+	3.	How many HHVs are still missing claims, and for how long?
+	4.	Are claims being submitted within expected timelines (≤ 90 days)?
+	5.	Where do delays cluster (by LOB, market, state, provider, CPT)?
+	6.	Which HHVs need operational follow-up?
+
+⸻
+
+3. High-Level Data Logic (Non-Technical)
+
+Core datasets used
+	•	HHV disposition data → identifies completed visits
+	•	Claims data → identifies claim submission and adjudication
+
+How HHVs are matched to claims
+
+An HHV is considered “converted” if:
+	•	Member ID matches
+	•	Date of Service matches
+	•	Claim belongs to Signify (TIN-based filter)
+	•	Claim contains core HHV CPT codes (e.g., 99342, 99344, 99348, 99336)
+	•	Latest adjudicated claim is selected when multiple exist
+
+⸻
+
+4. Key Definitions (Business-Friendly)
+
+Completed HHV
+
+A Healthy Home Visit with a final “Completed” disposition.
+
+HHV with Claim
+
+A completed HHV where at least one valid claim was received for that visit.
+
+Missing Claim
+
+A completed HHV where:
+	•	No matching claim has been received as of today
+	•	OR claim has not arrived within the expected lag window
+
+⚠️ Important:
+“Missing” does not always mean “never coming” — it often reflects claim lag.
+
+⸻
+
+5. Claim Lag Concept (Critical to Understand)
+
+Claims do not arrive instantly after an HHV.
+
+Typical lifecycle:
+	1.	HHV completed (Date of Service)
+	2.	Vendor prepares documentation
+	3.	Claim is submitted (can take weeks)
+	4.	Claim adjudicated (paid / denied / adjusted)
+
+Business expectation:
+Most HHV claims should arrive within 90 days of Date of Service.
+
+Why claims can look “missing” even if valid
+	•	Claim still in submission window
+	•	Claim submitted but not yet adjudicated
+	•	Re-submission after denial
+	•	Data latency in source systems
+
+This dashboard explicitly separates timing effects from true gaps.
+
+⸻
+
+6. Dashboard Walk-Through (Visualization by Visualization)
+
+⸻
+
+6.1 KPI: Total Completed – Healthy Home Visits
+
+What it shows
+Total number of HHVs completed for the selected filters (LOB, market, plan, etc.)
+
+Why it matters
+This is the denominator for all downstream performance metrics.
+
+Who uses it
+	•	Leadership → program scale
+	•	Operations → workload tracking
+
+⸻
+
+6.2 KPI: Total Completed – HHVs with Claims
+
+What it shows
+Number of completed HHVs that have at least one valid claim received.
+
+Why it matters
+This represents realized value, not just activity.
+
+Key insight
+	•	The gap between this and total HHVs highlights risk exposure
+
+⸻
+
+6.3 Trend: Claims Paid Over Time (by Date of Service)
+
+What it shows
+	•	Monthly trend of paid claims
+	•	Split by MRA vs ACA Small Group
+
+Why it matters
+	•	Identifies seasonal patterns
+	•	Highlights months where claims lag or drop
+	•	Helps validate whether recent months are incomplete due to timing
+
+Key insight
+	•	Sharp drop in recent months ≠ failure
+	•	Usually indicates expected runout
+
+⸻
+
+6.4 Map: Market Head (CMS State)
+
+What it shows
+	•	Geographic distribution of claims
+	•	Based on CMS market / state alignment
+
+Why it matters
+	•	Identifies state-level performance gaps
+	•	Supports market-specific escalation or vendor discussions
+
+Leadership takeaway
+
+“Which states consistently lag in HHV claim conversion?”
+
+⸻
+
+6.5 Table: Claims Status by LOB
+
+What it shows
+	•	Paid (P)
+	•	Denied (D)
+	•	Null / Pending
+
+Why it matters
+	•	Paid ≠ denied ≠ missing
+	•	Helps distinguish process issues from eligibility issues
+
+Operational insight
+	•	High denial rate may indicate coding or documentation problems
+
+⸻
+
+6.6 Distribution: Claim Submission Lag Buckets
+
+Example buckets
+	•	0–30 days
+	•	31–60 days
+	•	61–90 days
+	•	90+ days
+	•	No claim received
+
+Why it matters
+	•	This is the most actionable visualization
+	•	Separates normal lag from true risk
+
+Key business rule
+	•	HHVs > 90 days with no claim → requires follow-up
+
+⸻
+
+6.7 Trend: Members with HHV Completed but No Claims (90+ Days)
+
+What it shows
+	•	Monthly trend of HHVs aging past 90 days without claims
+
+Why it matters
+	•	Indicates vendor submission risk
+	•	Drives compliance and escalation discussions
+
+Leadership takeaway
+
+“Are we accumulating financial exposure month over month?”
+
+⸻
+
+6.8 CPT-Level Detail (Supporting Table)
+
+What it shows
+	•	Core HHV CPT codes linked to claims
+
+Why it matters
+	•	Confirms correct identification of HHV claims
+	•	Helps exclude screening-only claims
+
+⸻
+
+7. How Different Teams Use This Dashboard
+
+⸻
+
+Executive / Leadership
+	•	HHV → Claim conversion rate
+	•	Financial risk visibility
+	•	Vendor accountability
+	•	Market-level performance
+
+⸻
+
+Operations / Vendor Management
+	•	Identify overdue HHVs
+	•	Track submission timeliness
+	•	Prioritize outreach to vendors
+
+⸻
+
+Analytics / Reporting
+	•	Validate data completeness
+	•	Monitor claim lag behavior
+	•	Support regulatory or audit requests
+
+⸻
+
+8. Key Takeaways (Executive Summary)
+	•	Not all completed HHVs immediately convert to claims — lag is expected
+	•	Claims beyond 90 days without submission represent true risk
+	•	This dashboard distinguishes timing effects vs real gaps
+	•	Enables targeted, data-driven follow-ups
+	•	Improves transparency across Medicare and ACA Small Group
+
+⸻
+
+9. Recommended Next Enhancements (Optional)
+	1.	HHV → Claim conversion % KPI
+	2.	Provider / TIN-level lag ranking
+	3.	Denial reason analysis
+	4.	SLA breach alerts (90+ days)
+	5.	Month-over-month improvement tracking
+
+⸻
+
+10. Final Note to Stakeholders
+
+This dashboard is not just a report — it is an operational monitoring tool designed to:
+	•	Protect revenue
+	•	Improve vendor accountability
+	•	Support timely CMS-aligned submissions
+
+⸻
+
+If you want, next I can:
+	•	Convert this into a 1-page exec summary
+	•	Create a slide-ready version
+	•	Add a “How to interpret this dashboard” cheat sheet
+
+
+
