@@ -197,4 +197,208 @@ status table
 +----------+--------------+------+-----+---------+----------------+---------------------------------+
 
 This work is licensed under a Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported License
-To view a copy of this license, visit: http://creativecommons.org/licenses/by-nc-sa/3.0/
+To view a copy of this license, visit: Perfect — I’ll extract only the changes that were actually discussed on the call so you can send a clean follow-up email.
+
+No assumptions. Only what was mentioned.
+
+⸻
+
+✅ Changes Discussed for Enrollment Dashboard
+
+⸻
+
+1️⃣ Focus on Medicare (Deprioritize ACA)
+
+Decision:
+	•	Growth vs non-growth logic is more important for Medicare
+	•	ACA is being phased out (IFP gone, Small Group declining)
+	•	Dashboard can focus primarily on Medicare segment
+
+Action:
+	•	Prioritize Medicare KPIs
+	•	ACA can be secondary or excluded if needed
+
+⸻
+
+2️⃣ Fix Medicare Segmentation Logic (Critical)
+
+Issue:
+
+Group Medicare numbers were incorrect (showing ~277K / 289K instead of ~1.3M)
+
+Action Items:
+	•	Validate PBP logic
+	•	Confirm 800-series = Group Medicare
+	•	Get proper H Plan + PBP mapping from MGM / Informatics
+	•	Ask Julian/Sula if there is:
+	•	A table mapping H Plan + PBP → General Enrollment vs D-SNP
+
+Why:
+
+Current logic may be incomplete.
+Segment logic can change yearly.
+Should rely on MGM maintained mapping.
+
+⸻
+
+3️⃣ Clarify “Total Enrolled Members” KPI
+
+Issue:
+
+Title is misleading.
+It represents multiple years, not current year.
+
+Action:
+
+Modify header to clearly indicate:
+	•	“All-Time Enrolled Members”
+OR
+	•	“Multi-Year Total Enrollment”
+
+Otherwise leadership may ignore it.
+
+⸻
+
+4️⃣ Possibly Remove Total Enrollment Box
+
+Kim mentioned:
+
+“I don’t think that number would matter to us.”
+
+So:
+
+Action:
+	•	Consider removing this KPI entirely
+OR
+	•	Make it clearly labeled as historical
+
+⸻
+
+5️⃣ Active Members KPI Slightly Off
+
+Mentioned:
+	•	Should be closer to ~4.2M for Medicare
+	•	Current shows ~4.09M
+
+Action:
+	•	Validate active filter logic
+	•	Ensure only Active status included
+	•	Confirm correct year filtering
+
+⸻
+
+6️⃣ Add Clear Year Filter
+
+Confusion occurred around:
+	•	2025 vs 2026
+	•	Multiple years included
+
+Action:
+
+Add visible filter:
+	•	Enrollment Year
+	•	OR Coverage Year
+
+So users clearly see what period they’re viewing.
+
+⸻
+
+7️⃣ Pending Enrollment Aging Clarification
+
+Observation:
+
+Pending >90 days may look concerning.
+
+Clarified:
+	•	Pending often future effective enrollments
+	•	Volatile month-to-month
+
+Action:
+	•	Possibly add tooltip or description explaining pending
+	•	Consider reviewing >90 bucket
+
+No structural change required, just clarity.
+
+⸻
+
+8️⃣ Validate Cancellation & Enrollment Spikes
+
+Observed:
+	•	January spike (AEP / OEP)
+	•	June enrollment spike
+	•	2022 highest enrollment year
+
+No change requested — just explanation acknowledged.
+
+⸻
+
+9️⃣ Ensure Dashboard Auto Refresh
+
+Discussed:
+	•	Run notebook → refresh dashboard
+	•	Plan to set monthly auto-refresh
+
+Action:
+	•	Set scheduled refresh (monthly)
+
+⸻
+
+🔟 Clickable Drill-Down Clarification
+
+They asked:
+
+What is clickable?
+
+Clarified:
+	•	Blue and orange elements are clickable.
+
+No change required — just awareness.
+
+⸻
+
+🔴 Most Important Action Items
+
+If you summarize for leadership, focus on these:
+	1.	Correct Medicare segmentation logic
+	2.	Validate Group Medicare counts (~1.3M expected)
+	3.	Clarify multi-year total enrollment KPI
+	4.	Add visible year filter
+	5.	Validate Active member logic
+
+⸻
+
+📧 You Can Send This Email
+
+Subject: Follow-Up: Enrollment Dashboard Review – Action Items
+
+Hi Team,
+
+Based on today’s discussion, below are the agreed updates for the Enrollment Dashboard:
+	1.	Prioritize Medicare KPIs; ACA can be deprioritized.
+	2.	Validate Medicare segmentation logic (800-series PBP → Group Medicare).
+	3.	Confirm proper H Plan + PBP mapping from MGM/Informatics for GE vs D-SNP.
+	4.	Clarify or relabel “Total Enrolled Members” as multi-year enrollment.
+	5.	Revalidate Active member counts (~4.2M expected).
+	6.	Add visible year filter to avoid confusion on multi-year data.
+	7.	Add clarification on Pending enrollment aging.
+	8.	Set monthly auto-refresh.
+
+We will coordinate with Informatics (Julian/Sula) to validate mapping logic.
+
+Please let us know if any additional refinements are needed.
+
+Thanks,
+[Your Name]
+
+⸻
+
+If you want, I can also help you:
+	•	Draft a more executive-level email
+	•	Or create a shorter summary version
+	•	Or prepare talking points for the next meeting
+
+Just tell me.
+
+
+
+
