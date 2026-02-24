@@ -804,4 +804,589 @@ Tell me your time limit tomorrow.
 
 
 
+Number of partitions should be multiple of number of cores
+
+So that no core remain idle
+
+Application means a piece of code or multiple notebooks with complex logic
+
+When user submits the application, driver initiates the spark session 
+
+DAG creates logical plan 
+
+DAG divides the code in small parts in form of tasks and give it to task executor
+
+Executor requests for resources from cluster manager
+
+Cluster manager allocates resources to execute tasks
+
+Driver establishes connection with worker and assign tasks
+
+Worker executes the task and return the result
+
+Driver returns the result
+
+Spark is fast because:
+
+It has distributed frame work allowing it do parallel processing 
+
+And it has in memory processing 
+
+Driver and each executor in the worker have its own JVM processes
+
+When application is submitted to spark, Spark divide the code into Jobs. Jobs are further divided into stages based on the number of shuffling operations across the cluster like Joins. No of stages determined by number of shuffle operations 
+
+Inside each job, multiple tasks will be created
+
+And each task perform same logic
+
+No of tasks = No of paritions
+
+For each partition, there’s a task
+
+Transformation means it transforms the input RDD and create new RDD
+
+RDD is the native structure of spark, it internally handles code as RDD
+
+RDD or dataframe is stored in memory of cluster in form of partition
+
+Each executor can consists of multiple cores
+
+On heap memory and off heap memory 
+
+Libraries: SQL, streaming, MLLib, GraphX
+
+When we use multiple languages in a code, we need to use magic commands 
+
+![IMG_2051.png](https://prod-files-secure.s3.us-west-2.amazonaws.com/63821fd1-3467-45a7-87f9-f8458191aa32/be744573-eb5f-42e0-af63-2450f2fa1775/IMG_2051.png)
+
+collect(): Retrieves the entire dataset to the driver, potentially causing memory issues for large data.
+
+- The collect() action retrieves the entire DataFrame or RDD and brings it to the driver program as a list.
+- It’s useful when you need to access the complete dataset on the driver node, but be careful! For very large datasets, this can cause memory issues, as the entire dataset will be loaded into the driver’s memory.
+- 
+
+take(): Efficiently retrieves a specified number of rows without loading the whole dataset into memory.
+
+- The take() action is used to retrieve a specified number of records from the DataFrame or RDD without bringing the entire dataset to the driver.
+- This makes it more memory-efficient compared to collect() for large datasets.
+
+cache vs persist:
+
+Someone might think that why can't cache or persisted all the data frames are all the transformations. That is possible, but it will consume the space in the memory. we have fixed memory that is ram and we need to have space for storing the stuff in memory, as well as for computation and that is why we can't do it for all the transformations
+
+cache - always in memory
+
+persist - in memory or disk storage or both
+
+- Week 5
+    - Higher level API
+        
+        https://voca.ro/1fNCe0CSBLD4
+        
+        Rdd doesn't contain any schema
+        
+        it is raw data which is distributed across various partitions without schema/metadata associated
+        
+        select orderid,orderdate from orders; 
+        
+        this will check for 2 things
+        
+        1. data stores in physical storage disks
+        2. schema stores in metastore
+        
+        when we execute query, both gets combined
+        
+        if column not found it will give analysis exception
+        
+        Similary in **Spark SQL** - Datafile (stores in datalake - HDFS, ADLS Gen2, S3) + Metadata (stored in meta store)
+        
+        it works like normal databases
+        
+        Spark table is persistent/permanent , which we access using Spark SQL
+        
+        spark table is accessible from other sessions
+        
+        **Spark Dataframe:**
+        
+        RDD + structure/schema
+        
+        data - in memory
+        
+        metadata - also in memory
+        
+        means if we stop spark session, it will not persist. both data and metadata will not persist
+        
+        So dataframe is temporary
+        
+        we cant access it from other sessions, only in one session, only visible in 1 session
+        
+        Here we don't have metastore
+        
+        so for temp, till the application is running, it will store the metadata in metadata catalog 
+        
+    - Understanding dataframes
+        
+        https://voca.ro/1hyTop04MkNE
+        
+        for using high level API, use spark session not spark context
+        
+        spark context is for rdd
+        
+        order_df.printSchema()
+        
+        it is not recommended to use infer schema as date will come as string
+        
+        1. it will not infer schema correctly
+        2. it will put load in spark as it has to scan the entire data to determine the datatype
+        3. it is recommended to explicitly mention the datatype
+        
+        Rename the column:
+        
+        orders_df = orders_df.withColumnRenamed(”order_status”,”orders”)
+        
+        lets say i want to change the datatype
+        
+        from pyspark.sql.functions import *
+        
+        orders_df = orders_df.withColumn(”order_date_new”,to_timestamp(”order_date”))
+        
+        orders_df.printSchema()
+        
+    - More about Dataframe Reader
+        
+        https://voca.ro/1jYObHibClxS
+        
+        standard dataframe reader 
+        
+        staticDataFrame = 
+        
+        spark.read.format("csv")\  
+        
+        .option("header", "true")\ 
+        
+        .option("inferSchema", "true")\ 
+        
+        .load("/data/retail-data/by-day/*.csv")
+        
+        df_csv = spark.read.option("header", "true").option("inferSchema", "true").csv("path/to/file.csv")
+        
+        df_json = spark.read.option("multiline", "true").json("path/to/file.json")
+        
+        df = spark.read.jdbc(url=jdbc_url, table=table_name, properties=properties)
+        
+        Shortcut method
+        
+        df_csv = spark.read.csv("path/to/file.csv", header=True, inferSchema=True)
+        
+        df_parquet = spark.read.parquet("path/to/file.parquet")
+        
+        df_json = spark.read.json("path/to/file.json")
+        
+        df_orc = spark.read.orc("path/to/file.orc")
+        
+        to filter df for a column, no performance issue in any, you can use both
+        
+        order_df.where(”customer_id=11599”)
+        
+        order_df.filter(”customer_id=11599”)
+        
+        if you want to not truncate any columns
+        
+        order_df.show(truncate=False)
+        
+        if i want to represent a dataframe in tabular form, use createtempview or createOrReplaceTempView
+        
+        this creates a spark table but is not persistent
+        
+        df.createOrReplaceTempView(”orders”) - 
+        
+        spark.sql(”select * from orders where order_status = ‘CLOSED’”)
+        
+        Convert a table to dataframe
+        
+        spark.read.table(”orders”)
+        
+    - Introducing Spark SQL
+        
+        
+        default is the default database
+        
+        so you create a database seprately
+        
+        createdata
+        
+        spark.sql("CREATE database if not exists itv005857_retail")
+        
+        spark.sql("SHOW databases").show()
+        
+        spark.sql("SHOW databases").filter("namespace like 'itv005857'").show()
+        
+        spark.sql("SHOW tables").show() this will show tables inside default database or the teamp table
+        
+        to change database
+        
+        spark.sql("use retail")
+        
+        spark.sql("SHOW tables").show()
+        
+        spark.sql("insert into itv013990_retail.orders select * from orders")
+        
+        here orders was a tempview table created before
+        
+        now i want to make sure it persits
+        
+        so i created a new table
+        
+        and now inserting records in it
+        
+        spark.sql("insert into itv013990_retail.orders select * from orders")
+        
+        Describe the table
+        
+        spark.sql("describe table itv013990_retail.orders ")
+        
+        spark.sql("describe table extended itv013990_retail.orders ")
+        
+        spark.sql("describe table extended itv013990_retail.orders ").show(truncate=False)
+        
+        table type can be managed or external table
+        
+        table is kept a location
+        
+        warehouse/<databasename.db>/<tablename>/files
+        
+        spark.sql("drop table itv013990_retail.orders").show()
+        
+        this will drop data and metadata both
+        
+        because its managed table
+        
+    - Spark SQL - Managed vs External Tables
+        
+        https://voca.ro/17j6byP4F2fP
+        
+        **managed table** - if we drop, data and metadata both gets deleted
+        
+        spark.sql("Create table itv013990_retail.orders (order_id integer, order_date string, customer_id integer, order_status string) using csv")
+        
+        if you want to save the data inform of CSV
+        
+        we  own the metadata and the data
+        
+        **external table** - use it like a view only
+        
+        spark.sql("Create table itv013990_retail.orders (order_id integer, order_date string, customer_id integer, order_status string) using csv location 'public/trendytech/retail_db/orders'")
+        
+        we only own the metadata but not the data
+        
+        when you drop it, you only drop the metadata
+        
+        TRUNCATE doesn't work on external table because it wont allow deleting external table
+        
+        DML operations in Spark
+        
+        insert - is working (creates new file)
+        
+        update - does not work
+        
+        delete - does not work
+        
+        select - works
+        
+        DML operations in Databricks
+        
+        insert - is working (creates new file)
+        
+        update -  work in delta table, allows modifying the file
+        
+        delete - work in delta table, allows modifying the file
+        
+        select - works
+        
+    - Use Case - Dataframes & Spark SQL
+        
+        
+        spark.sql(”select customers, count(order_id) from orders group by customers order by count(order_id) DESC limit 10 ”)
+        
+    - Getting started with Spark optimization
+        
+        Performance tuning
+        
+        1. application code level optimiztion
+            
+            cache
+            
+            reduceByKey instead of groupByKey
+            
+        2. cluster level optimization
+            
+            Containers/executors
+            
+        3. 
+    - Spark executors
+        
+        resources - memory (RAM), CPU Cores (Compute)
+        
+        our intention is to make sure job should get the right amount of resources
+        
+        10 Node clusters means 10 worker nodes
+        
+        each node has:
+        
+        16 CPU cores (1 core will be allotted to background processes)
+        
+        64 GB Ram 
+        
+        Executor is like container of resources, it will hold ram and CPU
+        
+        one node can have more than 1 executor
+        
+        in a single worker node, we can have multiple executors == multiple executors
+        
+        container = CPU Cores + Memory (RAM)
+        
+        how many executor can be created in 1 node?
+        
+        strategies to create executor inside node:
+        
+        1. Thin/tiny executor - more executors, with each holding minimum resources
+            1. 16 executor, each holding 1 core and 4 GB RAM
+            2. In a single core- we will not have multi thread
+            
+            Drawback:
+            
+            1. in this scenario we will be losing the benefit of multi threading
+            2. A lot of copies of broadcast variable are required. each executor should receive its own copy 
+        2. Fat executor - less executors, with each holding max resources
+            1. one executor of 16 CPU cores and 64 GB RAM
+            
+            Drawback:
+            
+            If a executor that holds more than 5 CPU cores, then the hdfs throughput suffers
+            
+            1. It is observed that if executor holds more than five CP course than the HDFS throughout suffers
+            2. if executor holds huge amount of memory, then the garbage collection takes a lot of time
+                1. garbage collection means removing unused objects from memory
+    - A Little More on Spark Executors
+        
+        balanced approach
+        
+        from 16 cores and 64 GB RAM, 1 core and 1 GB RAM is given for background activities
+        
+        in each node we are now left with 15 Core and 63 GB RAM
+        
+        we don't want our HDFS throughput to suffer (it suffers when we use more than 5 core per executor)
+        
+        each executor should have ≥5 CPU cores
+        
+        and for multi threading we need >1 CPU Core per executor
+        
+        15 Core and 63 GB RAM
+        
+        now we have 5 core per executor
+        
+        so we will have 3 executor
+        
+        so each executor with 5 CPU CORE and 21 GB RAM
+        
+        out of which 7% goes in overhead so 1.5 GB goes there == Off heap memory
+        
+        so 21-1.5 = ~19 GB
+        
+        so each exeutoe having 5 CPU CORE and 19 GB RAM
+        
+        and each node has 3 executoe
+        
+        so total executor = 3x 10 = 30
+        
+        from which 1 executor goes to YARN applicatoin
+        
+        so 29 executor
+        
+        On heap memory and off heap memory
+        
+        On heap memory requires garbage collection but its managed by JVM
+        
+        Off heap memory doesn't requires garbage collection and its managed by program
+        
+        count is action BUT
+        
+        groupBykey.count is not action, its transformation - [Link](https://medium.com/@sujathamudadla1213/why-does-the-count-operation-in-apache-spark-exhibit-dual-functionality-serving-as-a-4db361267e30)
+        
+- Week 6
+    - Recap of concepts learnt
+        
+        
+    - Schema enforcement
+        
+        https://voca.ro/17nby9HraEe3
+        
+        https://voca.ro/130n0NjRKrJF
+        
+        df = spark.read \ 
+        
+        .format("csv") \ 
+        
+        .option("header","true") \ 
+        
+        .option("inferSchema","true") \ 
+        
+        .option("samplingRatio",.01) \ 
+        
+        .load("/public/yelp-dataset/yelp_user.csv") /public/trendytech/datasets/orders_sample1.csv
+        
+        2 ways to enforce the schema
+         ============================= 
+        
+        1. **orders_schema** = 'order_id long, order_date date, cust_id long, order_status string' schema ddl 
+        
+        df = spark.read \ .format("csv") \ .schema(orders_schema) \ .load("/public/trendytech/datasets/orders_sample1.csv") 
+        
+        if there is a datatype issue we will get the column values as null 
+        
+        2. **StructType**
+        
+        orders_schema_struct = 
+        
+        StructType([ StructField("orderid",LongType()), 
+        
+        StructField("orderdate",DateType()), 
+        
+        StructField("customerid",IntegerType()), 
+        
+        StructField("orderstatus",StringType()), ])
+        
+        **StructType represents rows and StructField represent column**
+        
+        and also even if you define 
+        
+        its a  declarative constraint vs enforced constraint
+        
+        The false mentioned below is more of a declarative constraint and not an enforced one. It’s helpful when connecting with other data system for them to know which columns are not nullable
+        
+        Constraints in a data frame:
+        
+        1. Datatype
+        2. Nullable
+        3. default
+        4. Unique
+        5. PK
+        6. Check constraint
+        
+        ```jsx
+        from pyspark.sql.types import StructType, StructField, LongType, DateType, IntegerType, StringType,FloatType
+        
+        # Define the schema
+        circuits_df_struct = StructType([
+            StructField("circuitId", IntegerType(), False),      # LongType for order ID
+            StructField("circuitRef", StringType(), True),   # DateType for order date
+            StructField("name", StringType(), True), # IntegerType for customer ID
+            StructField("location", StringType(), True),  # StringType for order status
+            StructField("country", StringType(), True),  # StringType for order status
+            StructField("lat", FloatType(), True),  # StringType for order status
+            StructField("long", FloatType(), True),  # StringType for order status
+            StructField("alt", StringType(), True),  # StringType for order status
+            StructField("url", StringType(), True)  # StringType for order status
+        ])
+        
+        circuits_df =spark.read \
+          .format("csv") \
+          .option("header", "true") \
+            .schema(circuits_df_struct) \
+              .load("dbfs:/mnt/formula1dlpreet/raw/circuits.csv")
+        
+        we still got true in nullable
+        
+        circuits_df.printSchema()
+        root
+         |-- circuitId: integer (nullable = true)
+         |-- circuitRef: string (nullable = true)
+         |-- name: string (nullable = true)
+         |-- location: string (nullable = true)
+         |-- country: string (nullable = true)
+         |-- lat: float (nullable = true)
+         |-- long: float (nullable = true)
+         |-- alt: string (nullable = true)
+         |-- url: string (nullable = true)
+         
+         
+         that's a drawback of dataframe
+        ```
+        
+    - How to Deal with Date Type
+        
+        https://voca.ro/1aeD5onbaW1Q
+        
+        df = spark.read \ .format("csv") \ 
+        
+        .schema(orders_schema_struct) \ .load("/public/trendytech/datasets/orders_sample1.csv") 
+        
+        yyyy-mm-dd 2013-07-25 mm-dd-yyyy 07-25-2013 the dates are hard to deal sometimes, and different versions might have different behaviour to load a date as string and then later convert it to a relevant form. 
+        
+        df = spark.read \ .format("csv") \ .schema(orders_schema) \ .option("dateFormat","mm-dd-yyyy") \ .load("/public/trendytech/datasets/orders_sample2.csv") 
+        
+        [Correction: the date format should be MM-dd-yyyy (MM should be in uppercase) in the above options field, else it shows incorrect results] 
+        
+        ==⇒ mm represent minutes and MM represents month
+        
+        initially load the date column as string and then later apply a transformation and convert the datatype of this column from string to date 
+        
+        import pyspark.sql.functions import to_date
+        
+        new_df = df.withColumn("order_date",to_date("order_date","mm-dd-yyyy"))
+        
+        this will replace existing column
+        
+        new_df = df.withColumn("order_date_new",to_date("order_date","mm-dd-yyyy"))
+        
+        this will create new column
+        
+        whenever there’s mismatch in datatype, it will show as null
+        
+    - Read Modes
+        
+        https://voca.ro/1gpVRSIigjlN
+        
+        .option(”mode”,”dropmalformed”)
+        
+        3 types of modes ================= 
+        
+        => failfast (as soon as any malformed record is seen it will error out) 
+        
+        => permissive (default) if spark is not able to parse it due to datatype mismatch then make it as null without impacting the other results 
+        
+        => dropmalformed ignores the whole corrupted records.
+        
+        (if any record has any issues, please get rid of those records and continue with the records which are totally okay)
+        
+        how to infer the schema we should enforce the schema 
+        
+        => schema ddl 
+        
+        => struct type/struct fields how to deal with dates yyyy-mm-dd if your date is in different format either you specify that upfront. or you can load it as string and later convert it to date as and when required. spark2 spark3 withColumn transformation can either create a new column or it can modify the existing column. if there are parsing issues, generally the data shows as null..
+        
+        Parsing means reading raw data and convert it into proper datatype and format
+        
+        Modes ===== permissive failfast dropmalformed
+        
+    - Create dataframe
+        
+        
+        spark.createDataFrame(list)
+        
+        its accepts list and inside the list each record is a row object in form of tuple
+        
+    - Removal of duplicate from dataframe
+        
+        how to remove duplicate records from our dataframe =================================================== 
+        
+        mylist = [ (1,"Kapil",34), (1,"Kapil",34), (1,"Satish",26), (2,"Satish",26), ] 
+        
+        distinct()- when you are talking about all the columns and not a subset of columns 
+        
+        df.dropDuplicates(["name","age"]).show()
+
+
+
 
