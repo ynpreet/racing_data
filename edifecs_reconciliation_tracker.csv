@@ -1,0 +1,19 @@
+ID,Reconciliation Stage,Question,Identified Table(s),Status,Notes
+1,Aetna → Edifecs,Where are adjudicated claims stored in Edifecs?,RRM_CLAIM,Confirmed,Claim-level intake table
+2,Aetna → Edifecs,Where are encounters stored?,RRM_ENCOUNTER,Confirmed,Encounter-level processing table
+3,Aetna → Edifecs,How to identify claims that did NOT generate an encounter?,RRM_CLAIM vs RRM_ENCOUNTER,Pending Confirmation,Need join logic validation
+4,Aetna → Edifecs,How to identify reason why encounter was not generated?,Unknown,Pending,Need upstream logic confirmation
+5,Edifecs Processing,Which table tracks lifecycle status of encounter?,RRM_ENCOUNTER,Confirmed,Contains Activity State & Disposition IDs
+6,Edifecs Processing,Which table maps Activity State ID?,EN_ACTIVITY_STATE,Confirmed,Maps Activity State ID to meaning
+7,Edifecs Processing,Which table maps Disposition ID?,EN_DISPOSITION,Confirmed,Maps Disposition ID to meaning
+8,Edifecs Processing,Is there a status history table (all status changes over time)?,Unknown,Pending,Need confirmation if history is stored separately
+9,Edifecs Processing,"Which table stores validation errors (missing NPI, etc.)?",Error Identifier Table (Exact Name TBD),Partial,Need exact table name confirmation
+10,Edifecs Processing,How to detect missing NPI cases?,"RRM_CLAIM, RRM_ENCOUNTER",Partial,Need business rule confirmation
+11,Edifecs → CMS,Which table tracks CMS batch submission?,RX_BATCH / CLAIM_BATCH (To Confirm),Pending,Need official confirmation
+12,Edifecs → CMS,Which table links Encounter ID → Batch ID?,Unknown,Pending,Critical for submission reconciliation
+13,Edifecs → CMS,How to identify encounters never included in a CMS batch?,Unknown,Pending,Requires batch linkage confirmation
+14,Edifecs → CMS,How are 837 files tracked in DB?,Unknown,Pending,Need 837 tracking mechanism confirmation
+15,CMS → Edifecs,Where are CMS acknowledgments stored?,MAO_ACKNOWLEDGEMENT,Partial,Needs validation for completeness
+16,CMS → Edifecs,Does MAO table contain full response data?,Possibly Separate DB,Pending,Access limitation suspected
+17,CMS → Edifecs,Where is MAO4 stored?,Unknown,Pending,Schema/database confirmation required
+18,CMS → Edifecs,Which table powers official CMS reconciliation reports?,Unknown,Pending,Need confirmation from business/Edifecs team
