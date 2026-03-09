@@ -1,3 +1,247 @@
+Understood — **we will use only `COPY INTO` with Spark SQL** and still handle:
+
+* repeated files (same name)
+* metadata columns
+* schema evolution
+* garbage/corrupt rows
+* scalable code (only path/prefix change)
+
+Below is the **correct architecture using COPY INTO only**.
+
+---
+
+# 1. Create a Flexible Raw Table
+
+Create the table with **utility metadata columns**.
+
+```sql
+CREATE TABLE IF NOT EXISTS vendor_raw
+(
+  _source_file STRING,
+  _ingestion_time TIMESTAMP,
+  _load_id STRING,
+  _refused_record STRING
+)
+USING DELTA
+LOCATION 's3://bucket/delta/vendor_raw';
+```
+
+Now enable schema evolution:
+
+```sql
+SET spark.databricks.delta.schema.autoMerge.enabled = true;
+```
+
+---
+
+# 2. COPY INTO Ingestion Code (Reusable)
+
+You only change:
+
+```
+PATH
+PATTERN
+```
+
+```sql
+COPY INTO vendor_raw
+FROM (
+  SELECT
+      *,
+      input_file_name() AS _source_file,
+      current_timestamp() AS _ingestion_time,
+      uuid() AS _load_id,
+      _corrupt_record AS _refused_record
+  FROM 's3://bucket/vendor_path/'
+)
+FILEFORMAT = CSV
+FORMAT_OPTIONS (
+  'header' = 'true',
+  'inferSchema' = 'false',
+  'mode' = 'PERMISSIVE',
+  'columnNameOfCorruptRecord' = '_corrupt_record'
+)
+PATTERN = 'CI_Retro_Status_Report_ACA.*'
+COPY_OPTIONS (
+  'mergeSchema' = 'true'
+);
+```
+
+---
+
+# 3. What Happens Internally
+
+Each load gets:
+
+| column            | purpose                |
+| ----------------- | ---------------------- |
+| `_source_file`    | file path              |
+| `_ingestion_time` | ingestion timestamp    |
+| `_load_id`        | unique load identifier |
+| `_refused_record` | corrupt rows           |
+
+---
+
+# 4. Example Scenario
+
+### First file arrives
+
+```
+file1.txt
+```
+
+Rows inserted:
+
+| claim_id | _source_file | _load_id |
+| -------- | ------------ | -------- |
+| 1        | file1.txt    | loadA    |
+| 2        | file1.txt    | loadA    |
+
+---
+
+### Same file arrives again
+
+```
+file1.txt (replaced in S3)
+```
+
+Run:
+
+```sql
+COPY INTO vendor_raw
+COPY_OPTIONS ('force'='true')
+```
+
+Rows inserted:
+
+| claim_id | _source_file | _load_id |
+| -------- | ------------ | -------- |
+| 1        | file1.txt    | loadB    |
+| 2        | file1.txt    | loadB    |
+
+Now you know **which version came later**.
+
+---
+
+# 5. Query Latest Version of File
+
+```sql
+SELECT *
+FROM (
+  SELECT *,
+         ROW_NUMBER() OVER(
+            PARTITION BY _source_file
+            ORDER BY _ingestion_time DESC
+         ) AS rn
+  FROM vendor_raw
+)
+WHERE rn = 1;
+```
+
+---
+
+# 6. Handling Schema Changes
+
+Because we use:
+
+```
+mergeSchema = true
+```
+
+### New column appears
+
+Delta automatically adds it.
+
+---
+
+### Column missing
+
+Stored as:
+
+```
+NULL
+```
+
+---
+
+### Column datatype change
+
+Because we use:
+
+```
+inferSchema = false
+```
+
+everything lands as **STRING** in raw layer.
+
+---
+
+# 7. Garbage / Corrupt Data Handling
+
+We used:
+
+```
+mode = PERMISSIVE
+columnNameOfCorruptRecord = _corrupt_record
+```
+
+Bad rows go to:
+
+```
+_refused_record
+```
+
+Example:
+
+| claim_id | amount | _refused_record |
+| -------- | ------ | --------------- |
+| 1        | 100    | null            |
+| null     | null   | "bad,csv,row"   |
+
+---
+
+# 8. Fully Scalable Design
+
+You only change:
+
+```
+PATH
+PATTERN
+```
+
+Everything else works automatically.
+
+---
+
+# 9. Final Production Flow
+
+```
+S3
+ ↓
+COPY INTO
+ ↓
+vendor_raw (append only)
+ ↓
+Latest file view
+ ↓
+Silver transformation
+```
+
+---
+
+✅ This design satisfies **all constraints you gave**:
+
+* COPY INTO only
+* no PySpark
+* schema changes handled
+* corrupt rows captured
+* repeated files handled
+* scalable ingestion
+
+---
+
+If you'd like, I can also show you a **very advanced COPY INTO trick** used in production where **the table automatically keeps only the latest version of each file without writing a query every time**.
+That pattern makes the pipeline **fully self-maintaining**.
 
 
 
