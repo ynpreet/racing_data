@@ -1,3 +1,306 @@
+Perfect. Now we’re going to build real, executable SQL you can run in Databricks (or SQL Server if connected).
+
+I’ll structure this exactly aligned to the 4 stages you described.
+
+⸻
+
+🔷 ASSUMPTIONS (Adjust Table Names If Needed)
+
+Based on the discussion:
+
+Edifecs Tables
+	•	claim
+	•	encounter
+	•	claim_batch
+	•	disposition
+	•	disposition_reason
+
+Warehouse (Book of Record)
+	•	iwh_claim_line
+
+CMS Final (MARS)
+	•	mao4_sp
+
+⸻
+
+🟢 STAGE 1
+
+NextGen → Edifecs (Claim Presence)
+
+1️⃣ Total Medicare Claims in IWH (Starting Population)
+
+SELECT 
+    COUNT(DISTINCT source_claim_id) AS total_iwh_claims
+FROM iwh_claim_line
+WHERE line_of_business = 'Medicare Part C'
+  AND service_date >= DATEADD(month, -2, GETDATE());
+
+
+⸻
+
+2️⃣ How Many of Those Exist in Edifecs
+
+SELECT 
+    COUNT(DISTINCT e.claim_id) AS claims_in_edifecs
+FROM iwh_claim_line i
+LEFT JOIN claim e
+    ON i.source_claim_id = e.claim_id
+WHERE i.line_of_business = 'Medicare Part C'
+  AND i.service_date >= DATEADD(month, -2, GETDATE());
+
+
+⸻
+
+3️⃣ Missing in Edifecs (Stage 1 Drop)
+
+SELECT 
+    i.source_claim_id
+FROM iwh_claim_line i
+LEFT JOIN claim e
+    ON i.source_claim_id = e.claim_id
+WHERE i.line_of_business = 'Medicare Part C'
+  AND i.service_date >= DATEADD(month, -2, GETDATE())
+  AND e.claim_id IS NULL;
+
+
+⸻
+
+🟢 STAGE 2
+
+Edifecs Internal Processing
+
+We use:
+	•	activity_state
+	•	disposition
+	•	disposition_reason
+
+⸻
+
+4️⃣ Status Distribution in Edifecs
+
+SELECT 
+    activity_state,
+    disposition,
+    COUNT(DISTINCT claim_id) AS claim_count
+FROM claim
+WHERE created_date >= DATEADD(month, -2, GETDATE())
+GROUP BY activity_state, disposition
+ORDER BY claim_count DESC;
+
+
+⸻
+
+5️⃣ Claims Not Submitted to CMS (Dropped Before CMS)
+
+SELECT 
+    claim_id,
+    activity_state,
+    disposition,
+    disposition_reason
+FROM claim
+WHERE activity_state NOT LIKE '%Submitted%'
+  AND created_date >= DATEADD(month, -2, GETDATE());
+
+
+⸻
+
+🟢 STAGE 3
+
+Edifecs → CMS Submission
+
+⸻
+
+6️⃣ Claims Submitted to CMS
+
+SELECT 
+    COUNT(DISTINCT claim_id) AS submitted_to_cms
+FROM claim
+WHERE activity_state LIKE '%Submitted%'
+  AND created_date >= DATEADD(month, -2, GETDATE());
+
+
+⸻
+
+7️⃣ CMS Acknowledgement Received
+
+SELECT 
+    COUNT(DISTINCT claim_id) AS cms_ack_received
+FROM claim
+WHERE status LIKE '%Acknowledgement%'
+  AND created_date >= DATEADD(month, -2, GETDATE());
+
+
+⸻
+
+🟢 STAGE 4
+
+CMS Response (Accepted vs Rejected)
+
+⸻
+
+8️⃣ CMS Accepted vs Rejected
+
+SELECT 
+    CASE 
+        WHEN status LIKE '%Accepted%' THEN 'Accepted'
+        WHEN status LIKE '%Rejected%' THEN 'Rejected'
+        ELSE 'Other'
+    END AS cms_status,
+    COUNT(DISTINCT claim_id) AS claim_count
+FROM claim
+WHERE status LIKE '%Accepted%'
+   OR status LIKE '%Rejected%'
+GROUP BY 
+    CASE 
+        WHEN status LIKE '%Accepted%' THEN 'Accepted'
+        WHEN status LIKE '%Rejected%' THEN 'Rejected'
+        ELSE 'Other'
+    END;
+
+
+⸻
+
+🟢 STAGE 5
+
+MAO4 Final Monthly Response
+
+⸻
+
+9️⃣ Claims Present in MAO4
+
+SELECT 
+    COUNT(DISTINCT claim_id) AS mao4_claims
+FROM mao4_sp
+WHERE reporting_month = '202401';
+
+
+⸻
+
+🔟 Claims Accepted in MAO4 But Not Marked Accepted in Edifecs
+
+SELECT 
+    m.claim_id
+FROM mao4_sp m
+LEFT JOIN claim c
+    ON m.claim_id = c.claim_id
+WHERE m.reporting_month = '202401'
+  AND c.status NOT LIKE '%Accepted%';
+
+
+⸻
+
+🟢 FINAL: FULL FUNNEL QUERY
+
+This is what will impress leadership.
+
+⸻
+
+11️⃣ Full Stage Funnel Summary
+
+WITH stage1 AS (
+    SELECT DISTINCT source_claim_id
+    FROM iwh_claim_line
+    WHERE line_of_business = 'Medicare Part C'
+      AND service_date >= DATEADD(month, -2, GETDATE())
+),
+stage2 AS (
+    SELECT DISTINCT claim_id
+    FROM claim
+),
+stage3 AS (
+    SELECT DISTINCT claim_id
+    FROM claim
+    WHERE activity_state LIKE '%Submitted%'
+),
+stage4 AS (
+    SELECT DISTINCT claim_id
+    FROM claim
+    WHERE status LIKE '%Accepted%'
+),
+stage5 AS (
+    SELECT DISTINCT claim_id
+    FROM mao4_sp
+)
+
+SELECT 
+    (SELECT COUNT(*) FROM stage1) AS total_iwh,
+    (SELECT COUNT(*) FROM stage2) AS in_edifecs,
+    (SELECT COUNT(*) FROM stage3) AS submitted_to_cms,
+    (SELECT COUNT(*) FROM stage4) AS cms_accepted,
+    (SELECT COUNT(*) FROM stage5) AS in_mao4;
+
+
+⸻
+
+🔥 BONUS – DROP ANALYSIS QUERY
+
+SELECT 
+    'Missing in Edifecs' AS drop_stage,
+    COUNT(*) AS claim_count
+FROM iwh_claim_line i
+LEFT JOIN claim e
+    ON i.source_claim_id = e.claim_id
+WHERE e.claim_id IS NULL
+
+UNION ALL
+
+SELECT 
+    'Not Submitted to CMS',
+    COUNT(*)
+FROM claim
+WHERE activity_state NOT LIKE '%Submitted%'
+
+UNION ALL
+
+SELECT 
+    'Rejected by CMS',
+    COUNT(*)
+FROM claim
+WHERE status LIKE '%Rejected%';
+
+
+⸻
+
+🎯 What This Shows Leadership
+
+You now have:
+
+✔ Stage-wise drop count
+✔ Submission volume
+✔ CMS acceptance rate
+✔ MAO4 reconciliation
+✔ Root cause (disposition)
+
+⸻
+
+⚠️ Important
+
+Before running:
+	•	Confirm exact column names:
+	•	claim_id
+	•	activity_state
+	•	status
+	•	created_date
+	•	service_date
+	•	reporting_month
+
+If needed, run:
+
+SELECT TOP 10 * FROM claim;
+
+To inspect schema first.
+
+⸻
+
+If you want, I can now:
+	•	Convert this to Spark SQL (Databricks format)
+	•	Or build a ready-to-present funnel dashboard logic
+	•	Or optimize these queries for slow SQL Server
+
+Tell me your execution environment.
+
+
+
 Understood — **we will use only `COPY INTO` with Spark SQL** and still handle:
 
 * repeated files (same name)
