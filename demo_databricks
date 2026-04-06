@@ -1,3 +1,555 @@
+Absolutely. Below is a client-ready end-to-end documentation draft you can present to Mike.
+
+⸻
+
+SQL Server to Databricks Native Delta Migration Plan
+
+Foreign Catalog Materialization for 6,000 Tables Across 4 Schemas
+
+1. Executive Summary
+
+The current SQL Server source is exposed in Databricks through a foreign catalog. While this enables access, query performance is slow because data is being read remotely from SQL Server instead of natively from Delta in Databricks.
+
+The proposed approach is:
+	1.	Materialize all foreign catalog tables into Databricks Bronze Delta tables
+	2.	Transform selected large or frequently used Bronze tables into Silver optimized tables
+	3.	Apply partitioning only where justified by size and query patterns
+	4.	Use native Delta tables for downstream reporting, PySpark, and analytics
+
+This gives the team a practical migration path that is faster, scalable, and aligned with lakehouse best practices.
+
+⸻
+
+2. Current State
+
+Source
+	•	On-prem SQL Server
+	•	Exposed in Databricks via foreign catalog
+
+Scope
+	•	~6,000 tables
+	•	~4 schemas
+	•	For 1 database:
+	•	~5 billion rows
+	•	~578 GB
+
+SQL Server information provided
+
+From the details shared:
+	•	Edition: Enterprise Edition
+	•	Product Version: 15.0.4460.4
+	•	Product Level: RTM
+	•	Max DOP: 8
+	•	Max Server Memory: 122,880 MB (~120 GB)
+	•	Min Server Memory: 16 MB
+	•	Cost Threshold for Parallelism: 120
+	•	SQL Start Time: 2026-03-15 06:41:31.457
+
+Problem
+
+Foreign catalog queries are slow because:
+	•	data remains in SQL Server
+	•	reads are remote
+	•	network latency is involved
+	•	query pushdown is limited or inefficient for some workloads
+	•	repeated analytical scans hit the source repeatedly
+
+⸻
+
+3. Target State
+
+Proposed architecture
+
+Current
+
+On-Prem SQL Server → Foreign Catalog in Databricks → Slow remote queries
+
+Target
+
+On-Prem SQL Server → Databricks Bronze Delta → Databricks Silver Delta → Reporting / PySpark / BigQuery
+
+Outcome
+	•	SQL Server used mainly as migration source, not analytical serving layer
+	•	Bronze stores raw historical copy
+	•	Silver stores optimized analytical version
+	•	downstream users query native Delta instead of federated source
+
+⸻
+
+4. Assumptions Used for Estimation
+
+Some values were shared directly. A few infrastructure values were not explicitly shared, so the following assumptions are used for planning.
+
+SQL Server assumptions
+	•	Enterprise SQL Server with adequate production-grade hardware
+	•	Approximate source data size under current scope: 578 GB
+	•	SQL Server storage backed by SSD
+	•	Read throughput available for migration: 150–250 MB/s practical
+	•	CPU headroom available for extraction: moderate
+	•	Max DOP = 8 indicates SQL parallelism is configured, but not extremely aggressive
+	•	Source system is active, so migration should not assume full saturation of server resources
+
+Network assumptions
+	•	On-prem SQL Server to Databricks connectivity exists and is stable
+	•	Effective practical throughput to Databricks during migration: 75–150 MB/s
+	•	Network, not only disk, may become the effective bottleneck
+
+Databricks assumptions
+	•	Databricks on cloud environment with autoscaling cluster allowed
+	•	Delta writes to cloud object storage
+	•	Migration is historical one-time load, not CDC/incremental
+	•	No heavy transformation in Bronze
+	•	Silver transformations are mostly structural and performance-oriented
+
+⸻
+
+5. Recommended Migration Approach
+
+Phase 1: Bronze materialization
+
+Create native Delta copies of all foreign catalog tables.
+
+Example:
+
+CREATE OR REPLACE TABLE target_catalog.bronze_schema.table_name
+AS
+SELECT *
+FROM foreign_catalog.source_schema.table_name;
+
+Why Bronze first
+	•	simplest path to bring data into Databricks
+	•	preserves source-like raw state
+	•	separates ingestion from optimization
+	•	enables faster retries and validation
+	•	avoids mixing raw landing and business optimization in one step
+
+Important note
+
+CTAS into Bronze is fine for initial materialization, but it does not automatically produce the best layout for analytical performance.
+
+That is why Bronze should be treated as:
+	•	raw/native copy
+	•	minimal transformation layer
+	•	not necessarily the final query layer
+
+⸻
+
+6. Why Bronze Alone Is Not Enough
+
+If all 6,000 tables are only copied using CTAS, then:
+	•	large tables may not be partitioned appropriately
+	•	some tables may have too many files or poorly distributed files
+	•	full table scans may still be expensive
+	•	frequently used analytical workloads may remain slower than desired
+
+So the best practice is not:
+
+Foreign catalog → one CTAS → final production table
+
+The best practice is:
+
+Foreign catalog → Bronze → Silver optimized tables
+
+⸻
+
+7. Best Practice Design: Bronze and Silver
+
+Bronze
+
+Purpose:
+	•	raw historical landing
+	•	direct materialization from source
+	•	minimal logic
+	•	easier reconciliation with SQL Server
+
+Recommended characteristics:
+	•	schema close to source
+	•	audit columns if needed
+	•	avoid unnecessary partitioning
+	•	keep as simple as possible
+
+Silver
+
+Purpose:
+	•	query-optimized version
+	•	cleaned and standardized
+	•	partitioned only where justified
+	•	consumed by downstream reporting and PySpark
+
+Recommended characteristics:
+	•	partition large tables on appropriate business/date columns
+	•	apply repartitioning before write when needed
+	•	standardize datatypes if required
+	•	optimize file layout
+
+⸻
+
+8. Partitioning Guidance
+
+Partitioning every table is not a best practice.
+
+Partition only if:
+	•	table is large
+	•	common filters are on a low-to-moderate cardinality column
+	•	examples: service_month, load_date, year_month, state, market, line_of_business
+
+Do not partition if:
+	•	table is small
+	•	column has very high cardinality
+	•	partitioning would create too many small files
+	•	the table is rarely queried
+
+Recommended rule
+	•	Small tables: no partitioning
+	•	Medium tables: evaluate based on query pattern
+	•	Large tables: partition only on columns actually used in filters
+
+⸻
+
+9. Table Classification Strategy
+
+Use the sizing file already produced from SQL Server to classify tables.
+
+Categories
+
+Large tables
+	•	Greater than 10 GB
+	•	Run separately or in very limited parallelism
+	•	Evaluate partitioning in Silver
+
+Medium tables
+	•	Between 1 GB and 10 GB
+	•	Moderate parallelism
+	•	Partition only if query pattern supports it
+
+Small tables
+	•	Less than 1 GB
+	•	High parallelism allowed
+	•	Usually no partitioning needed
+
+This classification is the key to safe execution.
+
+⸻
+
+10. Databricks Cluster Recommendation
+
+Bronze migration cluster
+
+Workload type:
+	•	remote read from SQL Server
+	•	write to Delta
+	•	low to moderate transformation
+
+Recommended cluster:
+	•	6 to 8 workers
+	•	8 cores / 32 GB RAM per worker
+	•	autoscaling enabled
+	•	moderate worker count because source SQL Server and network are likely bigger bottlenecks than Spark compute
+
+This is sufficient for CTAS-driven Bronze materialization without over-investing in compute.
+
+Silver optimization cluster
+
+Workload type:
+	•	Delta read
+	•	shuffle
+	•	repartition
+	•	partitioned write
+	•	OPTIMIZE / compaction activities
+
+Recommended cluster:
+	•	8 to 12 workers
+	•	8 cores / 32 GB RAM or 16 cores / 64 GB RAM depending on budget
+	•	autoscaling enabled
+
+Silver needs a stronger cluster than Bronze because partitioned writes and shuffles are compute-heavy.
+
+⸻
+
+11. Spark / Delta Best Practices
+
+Bronze
+	•	keep transformations minimal
+	•	avoid over-partitioning
+	•	write as Delta
+	•	log start/end/status/counts
+
+Silver
+	•	use repartition() before write for large tables
+	•	use partitionBy() only where justified
+	•	enable AQE
+	•	tune shuffle partitions
+	•	use OPTIMIZE for large frequently queried tables
+
+Recommended settings:
+
+spark.conf.set("spark.sql.adaptive.enabled", "true")
+spark.conf.set("spark.sql.shuffle.partitions", "200")
+spark.conf.set("spark.databricks.delta.optimizeWrite.enabled", "true")
+spark.conf.set("spark.databricks.delta.autoCompact.enabled", "true")
+
+
+⸻
+
+12. Estimated Migration Time
+
+Basis for estimation
+
+Using:
+	•	578 GB
+	•	5 billion rows
+	•	one-time historical migration
+	•	remote read from on-prem SQL Server via foreign catalog
+	•	practical sustained source-to-Databricks throughput assumption: 75–150 MB/s
+
+Bronze time estimate
+
+Formula:
+
+Total data size / effective throughput
+
+Conservative
+	•	578 GB at 75 MB/s
+	•	~2.2 hours raw transfer time
+	•	with job overhead, metadata, table-by-table orchestration, retries:
+	•	~5 to 8 hours
+
+Realistic
+	•	578 GB at 100–125 MB/s
+	•	raw movement ~1.3 to 1.6 hours
+	•	with execution overhead:
+	•	~4 to 6 hours
+
+Best practical estimate for presentation
+
+Bronze materialization: 4 to 6 hours
+
+This assumes controlled parallelism and no major source-side contention.
+
+⸻
+
+13. Silver Time Estimate
+
+Silver runs fully inside Databricks, so this is usually faster than Bronze from a source-read perspective, but partitioning and shuffles add cost.
+
+Estimate by workload
+	•	read Bronze Delta
+	•	apply structural transformations
+	•	partition selected large tables
+	•	write optimized Silver Delta
+
+Expected Silver time
+
+For the 578 GB scope:
+	•	2 to 4 hours if only selected medium/large tables are optimized
+	•	4 to 6 hours if trying to aggressively partition too many tables
+
+Best practical estimate
+
+Silver optimization: 2 to 4 hours
+
+⸻
+
+14. End-to-End Estimated Time
+
+Best practical estimate
+	•	Bronze: 4 to 6 hours
+	•	Silver: 2 to 4 hours
+	•	validation / retries / reconciliation: 1 to 2 hours
+
+Total
+
+7 to 12 hours end-to-end
+
+Safe presentation message
+
+For planning, quote:
+“One business day for initial full migration and validation of the current 578 GB / 5B row scope, assuming controlled parallelism and no major source bottlenecks.”
+
+That is a defensible estimate.
+
+⸻
+
+15. Why It Won’t Be Just Raw Transfer Time
+
+Even if 578 GB theoretically moves quickly, actual runtime includes:
+	•	per-table query startup overhead
+	•	metadata operations for 6,000 tables
+	•	Delta transaction overhead
+	•	retries for failed tables
+	•	source system variability
+	•	parallel job orchestration
+	•	validation queries
+
+That is why the estimate is in hours, not just pure bandwidth math.
+
+⸻
+
+16. Execution Strategy
+
+Step 1
+
+Load sizing/control metadata into Databricks
+
+Columns should include:
+	•	schema_name
+	•	table_name
+	•	row_count
+	•	total_size_mb
+	•	data_size_mb
+	•	index_size_mb
+	•	migration_priority
+	•	migration_status
+	•	start_time
+	•	end_time
+	•	error_message
+
+Step 2
+
+Classify tables into:
+	•	large
+	•	medium
+	•	small
+
+Step 3
+
+Run Bronze in waves
+	•	large tables: 1–3 in parallel
+	•	medium tables: 10–20 in parallel
+	•	small tables: 50–100 in parallel
+
+Step 4
+
+Validate Bronze counts
+
+Step 5
+
+Promote selected high-value tables to Silver with optimization
+
+Step 6
+
+Point downstream workloads to Silver/native Delta
+
+⸻
+
+17. Validation Approach
+
+For each migrated table:
+	•	source row count vs Bronze row count
+	•	schema comparison
+	•	spot-check sample records
+	•	for Silver, validate record count and business logic equivalence
+
+Recommended minimum:
+	•	100% row count validation
+	•	sample data validation for high-priority tables
+	•	full business validation on tables used by reporting
+
+⸻
+
+18. Risks and Mitigation
+
+Risk: SQL Server overload
+
+Mitigation:
+	•	controlled parallelism
+	•	run heavy batches off-hours
+	•	isolate large tables
+
+Risk: Network bottleneck
+
+Mitigation:
+	•	avoid excessive concurrency
+	•	monitor actual throughput during pilot
+
+Risk: Large table failures
+
+Mitigation:
+	•	handle separately
+	•	retry logic
+	•	individual logging
+
+Risk: Poor Silver partition design
+
+Mitigation:
+	•	partition only based on actual query pattern
+	•	avoid partitioning every table
+
+Risk: Small-file problem
+
+Mitigation:
+	•	use optimize write
+	•	auto compaction
+	•	periodic OPTIMIZE for key tables
+
+⸻
+
+19. Recommended Pilot
+
+Before full migration, execute a pilot on:
+	•	10 large tables
+	•	50 medium tables
+	•	200 small tables
+
+Measure:
+	•	actual SQL Server throughput
+	•	Databricks write speed
+	•	failure rate
+	•	count validation time
+
+Then refine the full-run estimate using real numbers.
+
+This is the best way to move from planning estimate to production estimate.
+
+⸻
+
+20. Recommendation to Mike
+
+Recommended message
+
+We should not continue using the foreign catalog as the long-term serving layer for analytical workloads because the remote query pattern is the primary performance bottleneck.
+
+The recommended solution is to:
+	1.	materialize all source tables into Bronze Delta
+	2.	optimize selected analytical tables into Silver
+	3.	use native Delta as the serving layer
+
+This gives:
+	•	better performance
+	•	reduced dependency on SQL Server for analytics
+	•	a scalable foundation for future transformations and reporting
+
+⸻
+
+21. Final Recommendation Summary
+
+Recommended architecture
+	•	Foreign catalog only for ingestion source
+	•	Bronze for raw materialized Delta copy
+	•	Silver for optimized analytical tables
+
+Recommended cluster sizes
+	•	Bronze: 6–8 workers, 8 cores / 32 GB
+	•	Silver: 8–12 workers, 8 cores / 32 GB or 16 cores / 64 GB
+
+Estimated runtime for current scope
+	•	Bronze: 4–6 hours
+	•	Silver: 2–4 hours
+	•	Total including validation: 7–12 hours
+
+Best practice
+	•	do not partition all tables
+	•	classify by size and usage
+	•	optimize only the tables that need it
+	•	validate counts for all tables
+	•	use pilot-based refinement before full production run
+
+⸻
+
+If you want, I can turn this into a 1-page executive summary or a 5-slide presentation version for Mike.
+
+======
+
 Got it — you basically want a production-grade Auto Loader framework that:
 	•	Works across dev / test / prod
 	•	Handles multiple LOB folders (HHV + IOA)
