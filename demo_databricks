@@ -1,3 +1,32 @@
+-- Step 1: Build ZIP lookup
+CREATE OR REPLACE TEMP VIEW lk_zip_county AS
+SELECT
+    TRIM(zip_cd) AS zip_cd,
+    FIRST(county_nm) AS county_nm
+FROM weekly_county_match
+WHERE TRIM(zip_cd) <> ''
+GROUP BY TRIM(zip_cd);
+
+-- Step 2: Create lookup view
+CREATE OR REPLACE TEMP VIEW fmt_zip2cnty AS
+SELECT
+    TRIM(zip_cd) AS start,
+    TRIM(county_nm) AS label
+FROM lk_zip_county;
+
+-- Step 3: Use lookup
+SELECT
+    s.*,
+    COALESCE(f.label,'') AS county_nm
+FROM source_table s
+LEFT JOIN fmt_zip2cnty f
+    ON TRIM(s.zip_cd)=f.start;
+
+
+
+====
+
+
 Here is your final, combined, client-ready documentation — structured, detailed, and aligned for presentation to Mike.
 
 ⸻
